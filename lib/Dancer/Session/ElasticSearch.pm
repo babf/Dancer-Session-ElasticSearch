@@ -149,7 +149,8 @@ In config.yml
     type:  "my_session" # defaults to "session"
 
 This session engine will not remove expired sessions on the server, but as it's
-ElasticSearch you know when sessions were last updated from the document timestamp.
+ElasticSearch you can set a ttl on the documents when you create your ES index
+and let ES do the work for you.
 
 =head1 METHODS
 
