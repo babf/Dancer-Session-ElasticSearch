@@ -135,7 +135,7 @@ Dancer::Session::ElasticSearch - L<ElasticSearch> based session engine for Dance
 =head1 SYNOPSIS
 
 This module implements a session engine storing session variables in an
-ElasticSearch index.
+ElasticSearch index. It also signs IDs to thwart tampering and guessing.
 
 =head1 USAGE
 
