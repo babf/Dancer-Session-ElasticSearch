@@ -7,18 +7,18 @@ use base 'Dancer::Session::Abstract';
 use Dancer qw(:syntax);
 use ElasticSearch;
 use Try::Tiny;
+use Digest::HMAC_SHA1 qw();
 
-our $VERSION = 0.007;
-
+our $VERSION = 0.008;
 our $es;
 
 sub create {
     my $self = __PACKAGE__->new;
 
     my $data = {%$self};
-    my $id   = $self->_es->index( data => $data )->{_id};
+    my $id = $self->_es->index( data => $data )->{_id};
 
-    $self->id($id);
+    $self->id( $self->_sign($id) );
 
     return $self;
 }
@@ -27,16 +27,18 @@ sub flush {
     my $self = shift;
 
     my $data = {%$self};
-
-    $self->_es->index( data => $data, id => $self->id );
+    my $id   = $self->_verify( $self->id );
+    $self->_es->index( data => $data, id => $id );
     return $self;
 }
 
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
+    my $id = $self->_verify($session_id);
+
     my $res = try {
-        my $get = $self->_es->get( id => $session_id, ignore_missing => 1 );
+        my $get = $self->_es->get( id => $id, ignore_missing => 1 );
         return defined $get ? $get->{_source} : undef;
     }
     catch {
@@ -55,8 +57,9 @@ sub destroy {
         $self->_es->delete( id => $self->id );
         $self->write_session_id(0);
         delete $self->{id};
-    } catch {
-        warning("Could not delete session ID " . $self->id . " - $_");
+    }
+    catch {
+        warning( "Could not delete session ID " . $self->id . " - $_" );
         return;
     };
 }
@@ -70,11 +73,49 @@ sub _es {
     my $settings = setting('session_options');
 
     $es = ElasticSearch->new( %{ $settings->{connection} } );
-    $es->use_type( $settings->{type}  // 'session' );
+    $es->use_type( $settings->{type}   // 'session' );
     $es->use_index( $settings->{index} // 'session' );
 
     return $es;
 
+}
+
+sub _sign {
+    my ( $self, $id ) = @_;
+
+    my $settings = setting('session_options');
+    my $length = $settings->{signing}{length} || 10;
+
+    my $salt = join "",
+        ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' )
+        [ map { rand 64 } ( 1 .. $length ) ];
+    my $hash = $self->_hash( $id, $salt );
+
+    return ( $hash . $salt . $id );
+}
+
+sub _verify {
+    my ( $self, $string ) = @_;
+
+    my $settings = setting('session_options');
+    my $length = $settings->{signing}{length} || 10;
+
+    my ( $hash, $salt, $id ) = unpack "A${length}A${length}A*", $string;
+
+    return $hash eq $self->_hash( $id, $salt )
+        ? $id
+        : die "Session ID not verified";
+}
+
+sub _hash {
+    my ( $self, $id, $salt ) = @_;
+    my $settings = setting('session_options');
+    my $secret   = $settings->{signing}{secret};
+    my $length   = $settings->{signing}{length} || 10;
+
+    return
+        lc substr( Digest::HMAC_SHA1::hmac_sha1_hex( $id, $secret . $salt ),
+        0, $length );
 }
 
 1;

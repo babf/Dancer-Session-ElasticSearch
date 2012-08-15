@@ -1,4 +1,4 @@
-use Test::More tests => 5;
+use Test::More tests => 4;
 
 use strict;
 use warnings;
@@ -6,33 +6,31 @@ use warnings;
 use Dancer::Session::ElasticSearch;
 use Dancer qw(:syntax :tests);
 
-$\ = "\n";
+set 'session_options' => {
+    signing => {
+        secret => "lkjadslaj!ljasxmHasjaojsxm!!'",
+        length => 12
+    }
+};
 
 # create a session
-set session => 'ElasticSearch';
+my $session = Dancer::Session::ElasticSearch->create;
 
-my $id = session->id;
+isa_ok $session, 'Dancer::Session::ElasticSearch';
 
-session "foo" => "bar";
+my $id = $session->id;
 
-my $foo = session "foo";
+$session->flush;
 
-is $foo, "bar", "Data added to session object";
+is $session->id, $id, "Session ID remains the same after flushing";
 
-session->flush;
+$session->retrieve($id);
 
-is session->id, $id, "Session ID remains the same after flushing";
+is $session->id, $id, "Session ID remains the same after retrieval";
 
-session->retrieve($id);
+eval { $session->retrieve("NOTASESSIONID") };
 
-is session->id, $id, "Session ID remains the same after retrieval";
+like $@, "/Session ID not verified/",
+    "Retrieving with an invalid session ID errors";
 
-session->destroy;
-
-my $foo2 = session "foo";
-
-isnt $foo, $foo2, "After destruction, session vars are gone";
-
-isnt session->id, $id, "After destruction, session ID is changed";
-
-session->destroy;
+$session->destroy;
