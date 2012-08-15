@@ -144,9 +144,12 @@ In config.yml
   session:       "ElasticSearch"
   session_options:
     connection:
-    ... settings to pass to L<ElasticSearch>
+    ... settings to pass to ElasticSearch
     index: "my_index" # defaults to "session"
     type:  "my_session" # defaults to "session"
+    signing:
+        secret: "ldjaldjaklsdanm.m" # required for signing IDs
+        length: 10 # length of the salt and hash. defaults to 10
 
 This session engine will not remove expired sessions on the server, but as it's
 ElasticSearch you can set a ttl on the documents when you create your ES index
@@ -178,10 +181,22 @@ Remove the current session object from ES
 
 Connect to ElasticSearch and returns a handle
 
-=head2 _es
+=head2 init
 
 Overload the init method in L<Dancer::Session::Abstract> to C<not> create an ID
 as we will use the ElasticSearch ID instead.
+
+=head2 _verify($string)
+
+Verifies a signed ID
+
+=head2 _sign($id)
+
+Signs an ID
+
+=head2 _hash($id, $salt)
+
+Creates a hash from the $id, $salt and secret key as found in the config
 
 =head1 FORK ME
 
