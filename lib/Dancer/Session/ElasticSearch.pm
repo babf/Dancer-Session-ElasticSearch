@@ -27,17 +27,23 @@ sub flush {
     my $self = shift;
 
     my $data = {%$self};
-    my $id   = $self->_verify( $self->id );
-    $self->_es->index( data => $data, id => $id );
+    try {
+        my $id   = $self->_verify( $self->id );
+        $self->_es->index( data => $data, id => $id );
+    }
+    catch {
+        warning("Could not flush session ID ". $self->id . " - $_");
+        return;
+    };
+
     return $self;
 }
 
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
-    my $id = $self->_verify($session_id);
-
     my $res = try {
+        my $id = $self->_verify($session_id);
         my $get = $self->_es->get( id => $id, ignore_missing => 1 );
         return defined $get ? $get->{_source} : undef;
     }

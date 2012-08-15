@@ -3,8 +3,9 @@ use Test::More tests => 4;
 use strict;
 use warnings;
 
-use Dancer::Session::ElasticSearch;
 use Dancer qw(:syntax :tests);
+
+use Dancer::Session::ElasticSearch;
 
 set 'session_options' => {
     signing => {
@@ -16,7 +17,7 @@ set 'session_options' => {
 # create a session
 my $session = Dancer::Session::ElasticSearch->create;
 
-isa_ok $session, 'Dancer::Session::ElasticSearch';
+isa_ok $session, "Dancer::Session::ElasticSearch";
 
 my $id = $session->id;
 
@@ -28,9 +29,8 @@ $session->retrieve($id);
 
 is $session->id, $id, "Session ID remains the same after retrieval";
 
-eval { $session->retrieve("NOTASESSIONID") };
+my $session2 = $session->retrieve("NOTASESSIONID");
 
-like $@, "/Session ID not verified/",
-    "Retrieving with an invalid session ID errors";
+isnt $session2, "Dancer::Session::ElasticSearch", "Retrieving with an invalid session ID errors";
 
 $session->destroy;
