@@ -1,11 +1,37 @@
-use Test::More tests => 4;
+use Test::More;
 
 use strict;
 use warnings;
 
 use Dancer qw(:syntax :tests);
-
 use Dancer::Session::ElasticSearch;
+use ElasticSearch::TestServer;
+
+our $es;
+
+{
+    $ENV{ES_HOME}      ||= '/opt/elasticsearch/';
+    $ENV{ES_PORT}      ||= '9400';
+    $ENV{ES_INSTANCES} ||= 1;
+    $ENV{ES_IP}        ||= '127.0.0.1';
+    eval { $es = ElasticSearch::TestServer->new(
+                        ip        => $ENV{ES_IP},
+                        home      => $ENV{ES_HOME},
+                        port      => $ENV{ES_PORT},
+                        instances => $ENV{ES_INSTANCES},
+                 )
+         } or do { diag $_ for split /\n/, $@; undef $es };
+
+    if ( $es ) {
+        $es->use_index('session');
+        $es->use_type('session');
+        $Dancer::Session::ElasticSearch::es = $es;
+    }
+    else {
+        plan skip_all => 'No ElasticSearch test server available';
+        exit;
+    }
+}
 
 set 'session_options' => {
     signing => {
@@ -34,3 +60,5 @@ my $session2 = $session->retrieve("NOTASESSIONID");
 isnt $session2, "Dancer::Session::ElasticSearch", "Retrieving with an invalid session ID errors";
 
 $session->destroy;
+
+done_testing();
