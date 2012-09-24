@@ -20,7 +20,7 @@ our $es;
                         port      => $ENV{ES_PORT},
                         instances => $ENV{ES_INSTANCES},
                  )
-         } or do { diag $_ for split /\n/, $@; undef $es };
+    };
 
     if ( $es ) {
         $es->use_index('session');
@@ -28,8 +28,7 @@ our $es;
         $Dancer::Session::ElasticSearch::es = $es;
     }
     else {
-        plan skip_all => 'No ElasticSearch test server available';
-        exit;
+        BAIL_OUT 'No ElasticSearch test server available ' . $@;
     }
 }
 
