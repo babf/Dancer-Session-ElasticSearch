@@ -9,14 +9,15 @@ use ElasticSearch;
 use Try::Tiny;
 use Digest::HMAC_SHA1 qw();
 
-our $VERSION = 0.008;
-our $es;
+our $VERSION   = 1.003;
+our $es        = undef;
+our $retrieved = 0;
+our $fast      = 0;
 
 sub create {
     my $self = __PACKAGE__->new;
 
-    my $data = {%$self};
-    my $id = $self->_es->index( data => $data )->{_id};
+    my $id = $self->_es->index( data => {%$self} )->{_id};
 
     $self->id( $self->_sign($id) );
 
@@ -26,10 +27,10 @@ sub create {
 sub flush {
     my $self = shift;
 
-    my $data = {%$self};
     try {
         my $id   = $self->_verify( $self->id );
-        $self->_es->index( data => $data, id => $id );
+        $self->_es->index( data => {%$self}, id => $id );
+        $data = {};
     }
     catch {
         warning("Could not flush session ID ". $self->id . " - $_");
@@ -42,10 +43,12 @@ sub flush {
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
+    return $self if $retrieved and $self->fast;
+
     my $res = try {
         my $id = $self->_verify($session_id);
         my $get = $self->_es->get( id => $id, ignore_missing => 1 );
-        return defined $get ? $get->{_source} : undef;
+        return defined $get ? $get->{_source} : {};
     }
     catch {
         warning("Could not retrieve session ID $session_id - $_");
@@ -53,6 +56,7 @@ sub retrieve {
     };
 
     $res->{id} = $session_id;
+    $retrieved = 1;
 
     return bless $res, __PACKAGE__ if $res;
 }
@@ -72,11 +76,18 @@ sub destroy {
 
 sub init { }
 
+sub fast {
+    return $fast;
+}
+
+# internal methods
+
 sub _es {
 
     return $es if defined $es;
 
     my $settings = setting('session_options');
+    $fast = delete $settings->{fast} ? 1 : 0;
 
     $es = ElasticSearch->new( %{ $settings->{connection} } );
     $es->use_type( $settings->{type}   // 'session' );
@@ -150,6 +161,7 @@ In config.yml
     signing:
         secret: "ldjaldjaklsdanm.m" # required for signing IDs
         length: 10 # length of the salt and hash. defaults to 10
+    fast:   set to true to not hit the backend each time you get or set something
 
 This session engine will not remove expired sessions on the server, but as it's
 ElasticSearch you can set a ttl on the documents when you create your ES index
@@ -174,6 +186,10 @@ Returns the session object if found, C<undef> if not.
 =head2 destroy()
 
 Remove the current session object from ES
+
+=head2 fast()
+
+Accessor for the fast setting.
 
 =head1 INTERNAL METHODS
 
