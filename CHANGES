@@ -1,3 +1,6 @@
+1.003           - Add support for faster sessions (don't hit ES for every
+                  get or set - just once for each retrieve & flush cycle
+
 0.008           - Added signing of the session ID to make it tamper-proof
 
 0.001 - 0.007   - Formative stuff.
