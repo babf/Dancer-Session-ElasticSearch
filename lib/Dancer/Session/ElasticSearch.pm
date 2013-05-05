@@ -11,13 +11,12 @@ use Digest::HMAC_SHA1 qw();
 
 our $VERSION   = 1.003;
 our $es        = undef;
-our $retrieved = 0;
+our $data      = {};
 our $fast      = 0;
 
 sub create {
     my $self = __PACKAGE__->new;
 
-    my $data = {%$self};
     my $id = $self->_es->index( data => $data )->{_id};
 
     $self->id( $self->_sign($id) );
@@ -29,8 +28,9 @@ sub flush {
     my $self = shift;
 
     try {
-        my $id   = $self->_verify( $self->id );
+        my $id = $self->_verify( $self->id );
         $self->_es->index( data => {%$self}, id => $id );
+        $data  = {};
     }
     catch {
         warning("Could not flush session ID ". $self->id . " - $_");
@@ -43,10 +43,9 @@ sub flush {
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
-    # return $self if $retrieved and $self->fast;
-
-    my $res = try {
+    $data = try {
         my $id = $self->_verify($session_id);
+        return $data if keys %$data and $self->fast;
         my $get = $self->_es->get( id => $id, ignore_missing => 1 );
         return defined $get ? $get->{_source} : {};
     }
@@ -55,10 +54,9 @@ sub retrieve {
         return;
     };
 
-    $res->{id} = $session_id;
-    $retrieved = 1;
+    $data->{id} = $session_id;
 
-    return bless $res, __PACKAGE__;
+    return bless $data, __PACKAGE__;
 }
 
 sub destroy {
