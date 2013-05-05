@@ -10,7 +10,7 @@ use ElasticSearch::TestServer;
 our $es;
 
 {
-    $ENV{ES_HOME}      ||= '/opt/elasticsearch/';
+    $ENV{ES_HOME}      ||= '/usr/share/elasticsearch/';
     $ENV{ES_PORT}      ||= '9400';
     $ENV{ES_INSTANCES} ||= 1;
     $ENV{ES_IP}        ||= '127.0.0.1';
@@ -36,7 +36,8 @@ set 'session_options' => {
     signing => {
         secret => "lkjadslaj!ljasxmHasjaojsxm!!'",
         length => 12
-    }
+    },
+    fast => 1,
 };
 
 # create a session

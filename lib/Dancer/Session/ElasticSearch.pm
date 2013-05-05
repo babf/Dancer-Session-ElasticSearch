@@ -30,7 +30,6 @@ sub flush {
     try {
         my $id   = $self->_verify( $self->id );
         $self->_es->index( data => {%$self}, id => $id );
-        $data = {};
     }
     catch {
         warning("Could not flush session ID ". $self->id . " - $_");
