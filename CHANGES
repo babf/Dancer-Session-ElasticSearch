@@ -1,3 +1,6 @@
+1.004           - Faster sessions methods moved to Dancer::Session::Abstract
+                  so removing from here as no longer needed
+
 1.003           - Add support for faster sessions (don't hit ES for every
                   get or set - just once for each retrieve & flush cycle
 
