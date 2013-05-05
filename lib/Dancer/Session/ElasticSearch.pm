@@ -17,7 +17,8 @@ our $fast      = 0;
 sub create {
     my $self = __PACKAGE__->new;
 
-    my $id = $self->_es->index( data => {%$self} )->{_id};
+    my $data = {%$self};
+    my $id = $self->_es->index( data => $data )->{_id};
 
     $self->id( $self->_sign($id) );
 
@@ -42,7 +43,7 @@ sub flush {
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
-    return $self if $retrieved and $self->fast;
+    # return $self if $retrieved and $self->fast;
 
     my $res = try {
         my $id = $self->_verify($session_id);
@@ -57,7 +58,7 @@ sub retrieve {
     $res->{id} = $session_id;
     $retrieved = 1;
 
-    return bless $res, __PACKAGE__ if $res;
+    return bless $res, __PACKAGE__;
 }
 
 sub destroy {
