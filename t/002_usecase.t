@@ -11,7 +11,7 @@ our $es;
 
 {
     unless ( $ENV{ES_HOME} ) {
-        diag "Trying to guess the location of your ElasticSearch binary. You can skip this by setting the ES_HOME environment variable.";
+        diag "Trying to guess the location of your ElasticSearch binary.\nYou can skip this by setting the ES_HOME environment variable.";
         my @suspects = qw( /opt/elasticsearch/
                            /etc/elasticsearch/
                            /usr/sbin/elasticsearch/
@@ -60,12 +60,17 @@ set 'session_options' => {
     }
 };
 
+set 'session_fast' => 1;
+
 # create a session
 my $session = Dancer::Session::ElasticSearch->create;
 
 isa_ok $session, "Dancer::Session::ElasticSearch";
 
 my $id = $session->id;
+
+# create a new session
+$session->create;
 
 $session->flush;
 

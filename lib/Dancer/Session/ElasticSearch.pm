@@ -8,6 +8,7 @@ use Dancer qw(:syntax);
 use ElasticSearch;
 use Try::Tiny;
 use Digest::HMAC_SHA1 qw();
+use Data::Dump qw/pp/;
 
 our $VERSION   = 1.004;
 our $es        = undef;
@@ -28,10 +29,12 @@ sub create {
 sub flush {
     my $self = shift;
 
+    my $session_data = $data->{$self->id};
+
     try {
-        my $id = $self->_verify( $self->id );
-        $self->_es->index( data => {%$self}, id => $id );
-        $data  = {};
+        my $id           = $self->_verify( $self->id );
+        $self->_es->index( data => {%$session_data}, id => $id );
+        $data    = {};
     }
     catch {
         warning("Could not flush session ID ". $self->id . " - $_");
@@ -44,20 +47,27 @@ sub flush {
 sub retrieve {
     my ( $self, $session_id ) = @_;
 
-    $data = try {
-        my $id = $self->_verify($session_id);
-        return $data if keys %$data and $self->fast;
+    my $session_data = try {
+        # return what we have if the session is_lazy
+        return $data->{$session_id} if defined $data->{$session_id} and $self->is_lazy;
+
+        my $id  = $self->_verify($session_id);
         my $get = $self->_es->get( id => $id, ignore_missing => 1 );
-        return defined $get ? $get->{_source} : {};
+
+        # store data locally if we're lazy
+        my $source = defined $get ? $get->{_source} : {};
+        $data->{$session_id} = $source if $self->is_lazy;
+
+        return $source;
     }
     catch {
         warning("Could not retrieve session ID $session_id - $_");
         return;
     };
 
-    $data->{id} = $session_id;
+    $session_data->{id} = $session_id;
 
-    return bless $data, __PACKAGE__;
+    return bless $session_data, __PACKAGE__;
 }
 
 sub destroy {
@@ -66,6 +76,7 @@ sub destroy {
         $self->_es->delete( id => $self->id );
         $self->write_session_id(0);
         delete $self->{id};
+        $data = {};
     }
     catch {
         warning( "Could not delete session ID " . $self->id . " - $_" );
@@ -74,6 +85,10 @@ sub destroy {
 }
 
 sub init { }
+
+sub is_lazy {
+    return setting('session_options')->{is_lazy} // 1;
+}
 
 # internal methods
 
@@ -150,11 +165,12 @@ In config.yml
   session_options:
     connection:
     ... settings to pass to ElasticSearch
-    index: "my_index" # defaults to "session"
-    type:  "my_session" # defaults to "session"
+    index: "my_index"               # defaults to "session"
+    type:  "my_session"             # defaults to "session"
     signing:
         secret: "ldjaldjaklsdanm.m" # required for signing IDs
-        length: 10 # length of the salt and hash. defaults to 10
+        length: 10                  # length of the salt and hash. defaults to 10
+    is_lazy:    0                   # (off by default)
 
 This session engine will not remove expired sessions on the server, but as it's
 ElasticSearch you can set a ttl on the documents when you create your ES index
@@ -179,6 +195,16 @@ Returns the session object if found, C<undef> if not.
 =head2 destroy()
 
 Remove the current session object from ES
+
+=head2 is_lazy
+
+Accessor for the is_lazy C<session_option>. Is off by default.
+Switched off and every get/set call read/write from ES.
+
+If you switch it on, you need to call C<session->flush>
+yourself (in an after hook, for example) to save session data
+in the backend.
+
 
 =head1 INTERNAL METHODS
 
