@@ -199,13 +199,12 @@ Remove the current session object from ES
 
 =head2 is_lazy
 
-Accessor for the is_lazy C<session_option>. Is off by default.
-Switched off and every get/set call read/write from ES.
+Accessor for the is_lazy C<session_option>. Is off by default. When switched off
+every get/set call will read/write from ES, which can be expensive (access a
+variable or two and you make a get request to ES each time).
 
-If you switch it on, you need to call C<session->flush>
-yourself (in an after hook, for example) to save session data
-in the backend.
-
+If you switch it on, you will need to call C<flush> yourself (in an after
+hook, for example) to save session data to the backend.
 
 =head1 INTERNAL METHODS
 
